@@ -25,4 +25,14 @@ class Str
     {
         return IllStr::studly($text);
     }
+
+    public static function before(string $subject, string $search): string
+    {
+        return IllStr::before($subject, $search);
+    }
+
+    public static function after(string $subject, string $search): string
+    {
+        return IllStr::after($subject, $search);
+    }
 }
