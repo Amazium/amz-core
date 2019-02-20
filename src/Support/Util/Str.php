@@ -35,4 +35,16 @@ class Str
     {
         return IllStr::after($subject, $search);
     }
+
+    /**
+     * Determine if a given string ends with a given substring.
+     *
+     * @param  string  $haystack
+     * @param  string|array  $needles
+     * @return bool
+     */
+    public static function endsWith($haystack, $needles)
+    {
+        return IllStr::endsWith($haystack, $needles);
+    }
 }
