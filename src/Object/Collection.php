@@ -261,4 +261,13 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
     {
         return $this->iterator;
     }
+
+    /**
+     * @param mixed $element
+     */
+    public function append($element)
+    {
+        $element = $this->createAndCheckElement($element);
+        $this[] = $element;
+    }
 }
