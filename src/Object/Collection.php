@@ -124,9 +124,8 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
                     array $payload,
                     $offset = null
                 ) use (
-                    $elementClass,
-                    $isNameable,
-                    $fromArrayCallback
+                    $fromArrayCallback,
+                    $isNameable
                 ) {
                     if ($isNameable && !isset($payload['name'])) {
                         $payload['name'] = $offset;
