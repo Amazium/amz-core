@@ -14,36 +14,27 @@ abstract class AbstractMiddlewareChain implements MiddlewareChain
 
     /**
      * MiddlewareChain constructor.
-     * @param Middleware ...$middleware
+     * @param Middleware[] $middlewareList
      */
-    private function __construct(Middleware ...$middleware)
+    private function __construct(array $middlewareList)
     {
-        $this->chain = $this->createMiddlewareChain($middleware);
+        $this->chain = $this->createMiddlewareChain($middlewareList);
     }
 
     /**
-     * @param $middleware
-     * @return AbstractMiddlewareChain
+     * @param array $middlewareList
+     * @return MiddlewareChain
      */
-    public static function fromMiddleware(Middleware ...$middleware): MiddlewareChain
+    public static function fromArrayOfMiddleware(array $middlewareList): MiddlewareChain
     {
-        return self::fromArrayOfMiddleware($middleware);
-    }
-
-    /**
-     * @param array $middleware
-     * @return AbstractMiddlewareChain
-     */
-    public static function fromArrayOfMiddleware(array $middleware): MiddlewareChain
-    {
-        foreach ($middleware as $key => $mw) {
-            $middleware[$key] = self::translateMiddleware($mw);
+        foreach ($middlewareList as $key => $middleware) {
+            $middlewareList[$key] = self::translateMiddleware($middleware);
         }
-        return new static($middleware);
+        return new static($middlewareList);
     }
 
     /**
-     * @param $middleware
+     * @param mixed $middleware
      * @return Middleware
      */
     public static function translateMiddleware($middleware): Middleware
@@ -52,15 +43,18 @@ abstract class AbstractMiddlewareChain implements MiddlewareChain
     }
 
     /**
-     * @param Middleware ...$middlewareList
+     * @param array $middlewareList
      * @return \Closure
      */
-    public function createMiddlewareChain(Middleware ...$middlewareList)
+    public function createMiddlewareChain(array $middlewareList)
     {
         $lastCallable = function (): Output {
             return new ArrayOutput();
         };
         while ($middleware = array_pop($middlewareList)) {
+            if (!$middleware instanceof Middleware) {
+                continue;
+            }
             $lastCallable = function (Input $input, Context $context) use ($middleware, $lastCallable) {
                 return $middleware($input, $context, $lastCallable);
             };
@@ -69,7 +63,7 @@ abstract class AbstractMiddlewareChain implements MiddlewareChain
     }
 
     /**
-     * @param Input $message
+     * @param Input $input
      * @param Context|null $context
      * @return Output
      */

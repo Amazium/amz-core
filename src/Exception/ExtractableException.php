@@ -7,5 +7,4 @@ use Throwable;
 
 interface ExtractableException extends Throwable, Extractable
 {
-
 }

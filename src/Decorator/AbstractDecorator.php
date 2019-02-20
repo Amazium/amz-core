@@ -9,6 +9,7 @@ class AbstractDecorator implements Decorator
 {
     /** @var Decoratable */
     private $decorated;
+
     /**
      * AbstractDecorator constructor.
      * @param Decoratable $decorated
@@ -17,6 +18,7 @@ class AbstractDecorator implements Decorator
     {
         $this->decorated = $decorated;
     }
+
     /**
      * @return Decoratable
      */
@@ -24,6 +26,7 @@ class AbstractDecorator implements Decorator
     {
         return $this->decorated;
     }
+
     /**
      * @return Decoratable
      */
@@ -34,20 +37,22 @@ class AbstractDecorator implements Decorator
         }
         return $this->decorated;
     }
+
     /**
-     * @param $name
-     * @param $arguments
+     * @param string $name
+     * @param array $arguments
      * @return mixed
      */
-    public function __call($name, $arguments)
+    public function __call(string $name, array $arguments)
     {
-        if (!method_exists($this->decorated, $name)) {
+        $callback = [ $this->decorated, $name ];
+        if (!method_exists($this->decorated, $name) || !is_callable($callback)) {
             throw new BadMethodCallException(sprintf(
                 'No method %s on class %s found',
                 $name,
                 static::class
             ));
         }
-        return call_user_func_array([ $this->decorated, $name ], $arguments);
+        return call_user_func_array($callback, $arguments);
     }
 }

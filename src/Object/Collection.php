@@ -6,7 +6,7 @@ use Amz\Core\Contracts\ArrayConstructable;
 use Amz\Core\Contracts\CreatableFromArray;
 use Amz\Core\Contracts\Extractable;
 use Amz\Core\Contracts\Hydratable;
-use Amz\Core\Contracts\Nameable;
+use Amz\Core\Contracts\Named;
 use Amz\Core\Object\Exception\InvalidElementTypeException;
 use ArrayAccess;
 use ArrayIterator;
@@ -25,7 +25,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
     private $elements = [];
 
     /**
-     * @var string
+     * @var string|null
      */
     private $keyStrategy;
 
@@ -72,8 +72,8 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
     }
 
     /**
-     * @param $element
-     * @param $offset
+     * @param mixed $element
+     * @param mixed $offset
      * @return mixed
      */
     public function createAndCheckElement(&$element, $offset)
@@ -94,7 +94,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
         return $element;
     }
 
-    /** @var callable */
+    /** @var callable|null */
     private $creator;
 
     /**
@@ -102,25 +102,39 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function creator()
     {
-        if (!$this->creator) {
+        if (!is_callable($this->creator)) {
             $elementClass = $this->elementClass();
             $interfaces = class_implements($elementClass);
-            $isNameable = in_array(Nameable::class, $interfaces);
-            if (in_array(ArrayConstructable::class, $interfaces)) {
+            $isNameable = in_array(Named::class, $interfaces, true);
+            $fromArrayCallback = [ $elementClass, 'fromArray' ];
+
+            // Check if we can construct the element by providing a payload array in the constructor
+            if (in_array(ArrayConstructable::class, $interfaces, true)) {
                 $this->creator = function (array $payload, $offset = null) use ($elementClass, $isNameable) {
                     if ($isNameable && !isset($payload['name'])) {
                         $payload['name'] = $offset;
                     }
                     return new $elementClass($payload);
                 };
-            } elseif (in_array(CreatableFromArray::class, $interfaces)) {
-                $this->creator = function (array $payload, $offset = null) use ($elementClass, $isNameable) {
+            // Check if we can construct an element by using the static fromArray method
+            } elseif (in_array(CreatableFromArray::class, $interfaces, true)
+                      && is_callable($fromArrayCallback)
+            ) {
+                $this->creator = function (
+                    array $payload,
+                    $offset = null
+                ) use (
+                    $elementClass,
+                    $isNameable,
+                    $fromArrayCallback
+                ) {
                     if ($isNameable && !isset($payload['name'])) {
                         $payload['name'] = $offset;
                     }
-                    return call_user_func([$elementClass, 'fromArray'], $payload);
+                    return call_user_func($fromArrayCallback, $payload);
                 };
-            } elseif (in_array(Hydratable::class, $interfaces)) {
+            // Check if we can fill the object by using an exchangeArray method
+            } elseif (in_array(Hydratable::class, $interfaces, true)) {
                 $this->creator = function (array $payload, $offset = null) use ($elementClass, $isNameable) {
                     if ($isNameable && !isset($payload['name'])) {
                         $payload['name'] = $offset;
@@ -157,7 +171,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
         );
 
         // Filter out nulls if not required
-        if (empty($options[ Extractable::EXTOPT_INCLUDE_NULL_VALUES ])) {
+        if (boolval($options[ Extractable::EXTOPT_INCLUDE_NULL_VALUES ] ?? false)) {
             $arrayCopy = array_filter(
                 $arrayCopy,
                 function ($value) {
@@ -205,11 +219,12 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
     /**
      * @param mixed $offset
      * @param mixed $element
+     * @return void
      */
-    public function offsetSet($offset, $element)
+    public function offsetSet($offset, $element): void
     {
         $this->createAndCheckElement($element, $offset);
-        if ($this->useNameAsKey && $element instanceof Nameable) {
+        if ($this->useNameAsKey && $element instanceof Named) {
             $offset = $element->name();
         }
         $this->elements[$this->cleanOffset($offset)] = $element;
@@ -217,8 +232,9 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
 
     /**
      * @param mixed $offset
+     * @return void
      */
-    public function offsetUnset($offset)
+    public function offsetUnset($offset): void
     {
         $offset = $this->cleanOffset($offset);
         unset($this->elements[$offset]);
@@ -233,7 +249,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
         if (is_int($offset)) {
             return $offset;
         }
-        if ($this->keyStrategy) {
+        if (!is_null($this->keyStrategy) && trim($this->keyStrategy) !== '') {
             // TODO: perform key naming strategy adjustments
         }
         return $offset;

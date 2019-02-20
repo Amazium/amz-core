@@ -12,6 +12,7 @@ use Traversable;
 
 class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serializable, Countable
 {
+    /** @var SplArrayObject */
     private $arrayObject;
 
     /**
@@ -43,7 +44,7 @@ class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serial
         );
 
         // Filter out nulls if not required
-        if (empty($options[ Extractable::EXTOPT_INCLUDE_NULL_VALUES ])) {
+        if (boolval($options[ Extractable::EXTOPT_INCLUDE_NULL_VALUES ] ?? false)) {
             $arrayCopy = array_filter(
                 $arrayCopy,
                 function ($value) {
@@ -69,7 +70,7 @@ class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serial
      * @param mixed $offset
      * @return bool
      */
-    public function offsetExists($offset)
+    public function offsetExists($offset): bool
     {
         return $this->arrayObject->offsetExists($offset);
     }
@@ -86,16 +87,18 @@ class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serial
     /**
      * @param mixed $offset
      * @param mixed $value
+     * @return void
      */
-    public function offsetSet($offset, $value)
+    public function offsetSet($offset, $value): void
     {
         $this->arrayObject->offsetSet($offset, $value);
     }
 
     /**
      * @param mixed $offset
+     * @return void
      */
-    public function offsetUnset($offset)
+    public function offsetUnset($offset): void
     {
         $this->arrayObject->offsetUnset($offset);
     }
@@ -103,15 +106,16 @@ class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serial
     /**
      * @return string
      */
-    public function serialize()
+    public function serialize(): string
     {
         return $this->arrayObject->serialize();
     }
 
     /**
      * @param string $serialized
+     * @return void
      */
-    public function unserialize($serialized)
+    public function unserialize($serialized): void
     {
         $this->arrayObject->unserialize($serialized);
     }
@@ -119,9 +123,8 @@ class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serial
     /**
      * @return int
      */
-    public function count()
+    public function count(): int
     {
         return $this->arrayObject->count();
     }
-
 }

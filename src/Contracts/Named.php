@@ -2,7 +2,7 @@
 
 namespace Amz\Core\Contracts;
 
-interface Nameable
+interface Named
 {
     /**
      * Get the name of the object

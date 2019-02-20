@@ -4,23 +4,22 @@ namespace Amz\Core\Support\Util;
 
 class Arr
 {
-    public static function export(array $expression, bool $asOneLine = false): string
+    public static function export(array $expression, bool $asOneLine = false): ?string
     {
         $export = var_export($expression, true);
         $export = preg_replace("/^([ ]*)(.*)/m", '$1$1$2', $export);
-        $array = preg_split("/\r\n|\n|\r/", $export);
+        $array = preg_split("/\r\n|\n|\r/", (string)$export) ?: [];
         $array = preg_replace(
             [ "/\s*array\s\($/", "/\)(,)?$/", "/\s=>\s$/" ],
             [ null, ']$1', ' => [' ],
             $array
-        );
+        ) ?: [];
+        array_unshift($array, "[");
         $export = join(
             $asOneLine ? ' ' : PHP_EOL,
-            array_filter(["["] + $array)
+            array_filter($array)
         );
         if ($asOneLine) {
-            var_export($expression);
-            var_dump($export);
             $export = preg_replace(
                 [
                     '/[0-9*] => /',
@@ -42,7 +41,6 @@ class Arr
                 ],
                 $export
             );
-            var_dump($export);
         }
         return $export;
     }
