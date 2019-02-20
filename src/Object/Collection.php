@@ -9,10 +9,13 @@ use Amz\Core\Contracts\Hydratable;
 use Amz\Core\Contracts\Nameable;
 use Amz\Core\Object\Exception\InvalidElementTypeException;
 use ArrayAccess;
+use ArrayIterator;
 use Countable;
 use Iterator;
+use IteratorAggregate;
+use Traversable;
 
-abstract class Collection implements Extractable, Hydratable, ArrayAccess, Countable, Iterator
+abstract class Collection implements Extractable, Hydratable, ArrayAccess, Countable, IteratorAggregate
 {
     /**
      * The payload
@@ -237,43 +240,10 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
     }
 
     /**
-     * @return mixed
+     * @return Iterator|ArrayIterator|Traversable
      */
-    public function current()
+    public function getIterator()
     {
-        return $this->iterator->current();
+        return $this->iterator;
     }
-
-    /**
-     * @return void
-     */
-    public function next()
-    {
-        $this->iterator->next();
-    }
-
-    /**
-     * @return mixed
-     */
-    public function key()
-    {
-        return $this->iterator->key();
-    }
-
-    /**
-     * @return bool
-     */
-    public function valid()
-    {
-        return $this->iterator->valid();
-    }
-
-    /**
-     * @return void
-     */
-    public function rewind()
-    {
-        $this->iterator->rewind();
-    }
-
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Amz\Core\Infrastructure\Log;
+namespace Amz\Core\Log;
 
 use Psr\Log\LoggerAwareTrait;
 
