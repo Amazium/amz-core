@@ -23,7 +23,15 @@ class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serial
      */
     public function __construct($input = [], int $flags = 0, string $iterator_class = "ArrayIterator")
     {
-        $this->arrayObject = new SplArrayObject($input, $flags, $iterator_class);
+        $this->arrayObject = new SplArrayObject([], $flags, $iterator_class);
+        foreach ($input as $key => $value) {
+            $this->offsetSet($key, $value);
+        }
+    }
+
+    public function keys(): array
+    {
+        return array_keys($this->arrayObject->getArrayCopy());
     }
 
     /**
