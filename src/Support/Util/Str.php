@@ -47,4 +47,16 @@ class Str
     {
         return IllStr::endsWith($haystack, $needles);
     }
+
+    /**
+     * Determine if a given string starts with a given substring.
+     *
+     * @param  string  $haystack
+     * @param  string|array  $needles
+     * @return bool
+     */
+    public static function startsWith($haystack, $needles)
+    {
+        return IllStr::startsWith($haystack, $needles);
+    }
 }

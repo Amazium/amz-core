@@ -89,7 +89,7 @@ class ArrayObject implements Extractable, IteratorAggregate, ArrayAccess, Serial
      * @param mixed $value
      * @return void
      */
-    public function offsetSet($offset, $value): void
+    public function offsetSet($offset, $value = null): void
     {
         $this->arrayObject->offsetSet($offset, $value);
     }

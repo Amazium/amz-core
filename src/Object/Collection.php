@@ -245,8 +245,9 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
             $offset = $element->name();
         }
         if (!is_numeric($offset)) {
-            if (is_null($index)) {
-                $index = count($this->elements);
+            $currentIndex = isset($this->keyMapping[$offset]) ? $this->keyMapping[$offset] : null;
+            if (!is_null($currentIndex)) {
+                $index = $currentIndex;
             }
             $this->keyMapping[$offset] = $index;
         }
@@ -295,6 +296,20 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
             $this->keyMapping[$key] = $index + 1;
         }
         $this->offsetSet(0, $element);
+    }
+
+    /**
+     * @param Collection $collection
+     */
+    public function merge(Collection $collection)
+    {
+        foreach ($collection as $offset => $element) {
+            if (is_numeric($offset)) {
+                $this->append($element);
+            } else {
+                $this->offsetSet($offset, $element);
+            }
+        }
     }
 
     /**
