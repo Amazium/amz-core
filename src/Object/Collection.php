@@ -12,10 +12,9 @@ use ArrayAccess;
 use ArrayIterator;
 use Countable;
 use Iterator;
-use IteratorAggregate;
 use Traversable;
 
-abstract class Collection implements Extractable, Hydratable, ArrayAccess, Countable, IteratorAggregate
+abstract class Collection implements Extractable, Hydratable, ArrayAccess, Countable, Iterator
 {
     /**
      * The payload
@@ -25,19 +24,15 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
     private $elements = [];
 
     /**
-     * @var string|null
+     * @var int
      */
-    private $keyStrategy;
+    private $index = 0;
 
     /**
-     * @var Iterator
+     * @var array
      */
-    private $iterator;
-
-    /**
-     * @var bool
-     */
-    protected $useNameAsKey = true;
+    private $keyMapping = [
+    ];
 
     /**
      * The element class used in the collection
@@ -51,13 +46,9 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      * @param array $elements
      * @param string|null $keyStrategy
      */
-    public function __construct(
-        array $elements = [],
-        string $keyStrategy = null
-    ) {
+    public function __construct(array $elements = [])
+    {
         $this->exchangeArray($elements);
-        $this->keyStrategy = $keyStrategy;
-        $this->iterator = new \ArrayIterator($this->elements);
     }
 
     /**
@@ -66,6 +57,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function exchangeArray(array $elements)
     {
+        $this->elements = [];
         foreach ($elements as $offset => $element) {
             $this->offsetSet($offset, $element);
         }
@@ -76,7 +68,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      * @param mixed $offset
      * @return mixed
      */
-    public function createAndCheckElement(&$element, $offset)
+    public function createAndCheckElement(&$element, $offset = null)
     {
         // If we received an array, try to create an object from type element class of it
         if (is_array($element)) {
@@ -158,22 +150,43 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function getArrayCopy(array $options = []): array
     {
+        $isNamed = null;
+        $elements = [];
+        foreach ($this->elements as $element) {
+            if (is_null($isNamed)) {
+                $isNamed = $element instanceof Named;
+            }
+            if ($isNamed) {
+                $elements[$element->name()] = $element;
+            } else {
+                $elements[] = $element;
+            }
+        }
+
         // Extract extractables
-        $arrayCopy = array_map(
-            function ($element) use ($options) {
+        array_walk(
+            $elements,
+            function (&$item) use ($options) {
+                return $item instanceof Extractable ? $item->getArrayCopy($options) : $item;
+            }
+        );
+
+        array_walk(
+            $elements,
+            function (&$element) use ($options) {
                 if ($element instanceof Extractable) {
                     return $element->getArrayCopy($options);
                 }
                 return $element;
             },
-            $this->elements
         );
 
-        // Filter out nulls if not required
-        if (boolval($options[ Extractable::EXTOPT_INCLUDE_NULL_VALUES ] ?? false)) {
-            $arrayCopy = array_filter(
-                $arrayCopy,
-                function ($value) {
+        // Filter on null values?
+        $includeNullValues = boolval($options[ Extractable::EXTOPT_INCLUDE_NULL_VALUES ] ?? false);
+        if (!$includeNullValues) {
+            $elements = array_filter(
+                $elements,
+                function ($value, $key) {
                     return !is_null($value);
                 },
                 ARRAY_FILTER_USE_BOTH
@@ -181,7 +194,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
         }
 
         // Return the array copy
-        return $arrayCopy;
+        return $elements;
     }
 
     /**
@@ -198,8 +211,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function offsetExists($offset)
     {
-        $offset = $this->cleanOffset($offset);
-        return array_key_exists($offset, $this->elements);
+        return isset($this->elements[$offset]) || isset($this->keyMapping[$offset]);
     }
 
     /**
@@ -208,11 +220,13 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function offsetGet($offset)
     {
-        $offset = $this->cleanOffset($offset);
-        if (!$this->offsetExists($offset)) {
+        if (isset($this->elements[$offset])) {
+            return $this->elements[$offset];
+        } elseif (isset($this->keyMapping[$offset])) {
+            return $this->elements[ $this->keyMapping[$offset] ];
+        } else {
             return null;
         }
-        return $this->elements[$offset];
     }
 
     /**
@@ -222,11 +236,21 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function offsetSet($offset, $element): void
     {
+        $index = null;
         $this->createAndCheckElement($element, $offset);
-        if ($this->useNameAsKey && $element instanceof Named) {
+        if (is_numeric($offset)) {
+            $index = $offset;
+        }
+        if (is_numeric($offset) && $element instanceof Named) {
             $offset = $element->name();
         }
-        $this->elements[$this->cleanOffset($offset)] = $element;
+        if (!is_numeric($offset)) {
+            if (is_null($index)) {
+                $index = count($this->elements);
+            }
+            $this->keyMapping[$offset] = $index;
+        }
+        $this->elements[$index] = $element;
     }
 
     /**
@@ -235,31 +259,22 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function offsetUnset($offset): void
     {
-        $offset = $this->cleanOffset($offset);
-        unset($this->elements[$offset]);
-    }
-
-    /**
-     * @param mixed $offset
-     * @return mixed
-     */
-    public function cleanOffset($offset)
-    {
-        if (is_int($offset)) {
-            return $offset;
+        // First we do numeric offsets
+        if (is_numeric($offset) && isset($this->elements[$offset])) {
+            unset($this->elements[$offset]);
+            if (in_array($offset, $this->keyMapping)) {
+                $mapping = array_flip($this->keyMapping);
+                unset($this->keyMapping[ $mapping[$offset] ]);
+            }
+            return;
         }
-        if (!is_null($this->keyStrategy) && trim($this->keyStrategy) !== '') {
-            // TODO: perform key naming strategy adjustments
-        }
-        return $offset;
-    }
 
-    /**
-     * @return Iterator|ArrayIterator|Traversable
-     */
-    public function getIterator()
-    {
-        return $this->iterator;
+        // Then unset by key
+        if (!is_numeric($offset) && isset($this->keyMapping[$offset])) {
+            $index = $this->keyMapping[$offset];
+            unset($this->elements[$index]);
+            unset($this->keyMapping[$offset]);
+        }
     }
 
     /**
@@ -267,7 +282,67 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
      */
     public function append($element)
     {
-        $element = $this->createAndCheckElement($element);
-        $this[] = $element;
+        $this->offsetSet(count($this->elements), $element);
+    }
+
+    /**
+     * @param mixed $element
+     */
+    public function prepend($element)
+    {
+        array_unshift($this->elements, null);
+        foreach ($this->keyMapping as $key => $index) {
+            $this->keyMapping[$key] = $index + 1;
+        }
+        $this->offsetSet(0, $element);
+    }
+
+    /**
+     * Return the current element
+     *
+     * @return mixed
+     */
+    public function current()
+    {
+        return $this->elements[$this->index];
+    }
+
+    /**
+     * Add 1 to the pointer
+     */
+    public function next(): void
+    {
+        $this->index++;
+    }
+
+    /**
+     * Return the current key value
+     *
+     * @return int|string
+     */
+    public function key()
+    {
+        if ($this->elements[$this->index] instanceof Named) {
+            return $this->elements[$this->index]->name();
+        }
+        $this->index;
+    }
+
+    /**
+     * Is the internal pointer in a valid location
+     *
+     * @return bool
+     */
+    public function valid()
+    {
+        return isset($this->elements[$this->index]);
+    }
+
+    /**
+     * Reset the pointer
+     */
+    public function rewind(): void
+    {
+        $this->index = 0;
     }
 }
