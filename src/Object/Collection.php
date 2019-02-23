@@ -178,7 +178,7 @@ abstract class Collection implements Extractable, Hydratable, ArrayAccess, Count
                     return $element->getArrayCopy($options);
                 }
                 return $element;
-            },
+            }
         );
 
         // Filter on null values?
